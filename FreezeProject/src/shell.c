@@ -1,6 +1,5 @@
 #include "shell.h"
 
-#include "disk.h"
 #include "fs.h"
 #include "input.h"
 #include "rtc.h"
@@ -25,23 +24,25 @@ void shell() {
     char buf[128];
     while (1) {
         print("\033[95mFreeze-OS>\033[0m ");
-        get_input(buf);
-        if (startswith(buf, "sudo ")) {
-            print("[sudo] ");
-            char* rest = buf + 5;
-            handle_command(rest);
-        } else if (startswith(buf, "freeze ")) {
-            print("[freeze] ");
-            char* rest = buf + 5;
-            handle_command(rest);
-        } else {
-            handle_command(buf);
+        get_input(buf, sizeof(buf));
+
+        char* prefix = "";
+        int cursor = 0;
+        const char sudo[] = "sudo ", freeze[] = "freeze ";
+        if (startswith(buf, sudo)) {
+            prefix = "[sudo] ";
+            cursor = sizeof(sudo);
+        } else if (startswith(buf, freeze)) {
+            prefix = "[freeze] ";
+            cursor = sizeof(freeze);
         }
+        print(prefix);
+        handle_command(buf + cursor, sizeof(buf) - cursor);
     }
 }
 
 // commands
-void handle_command(char* buf) {
+void handle_command(char* buf, const uint buf_size) {
     if (strcmp(buf, "help") == 1) {
         print("Built in commands:\n");
         print(
@@ -174,7 +175,7 @@ void handle_command(char* buf) {
         print("Editing ");
         print(filename);
         print(":\n");
-        get_input(buf);
+        get_input(buf, buf_size);
         int len = 0;
         while (buf[len]) len++;
         fs_write(fd, buf, len);
@@ -223,7 +224,7 @@ void handle_command(char* buf) {
         }
     } else if (strcmp(buf, "echo") == 1) {
         print("Type something:\n");
-        get_input(buf);
+        get_input(buf, buf_size);
         print(buf);
         putc('\n');
     } else if (startswith(buf, "echo ")) {
@@ -269,7 +270,7 @@ void handle_command(char* buf) {
         print("        \n");
         print("        \n");
         print("you> ");
-        get_input(buf);
+        get_input(buf, buf_size);
         print(buf);
         putc('\n');
     } else if (startswith(buf, "you> ")) {
@@ -315,7 +316,7 @@ void handle_command(char* buf) {
 
         print("Word: supercalifragilisticexpialidocious\n");
         print("you> ");
-        get_input(buf);
+        get_input(buf, buf_size);
 
         if (strcmp(buf, "supercalifragilisticexpialidocious") == 1) {
             print("Correct!\n");
@@ -329,7 +330,7 @@ void handle_command(char* buf) {
 
         print("Word: pseudopseudohypoparathyroidism\n");
         print("you> ");
-        get_input(buf);
+        get_input(buf, buf_size);
 
         if (strcmp(buf, "pseudopseudohypoparathyroidism") == 1) {
             print("Correct!\n");
@@ -343,7 +344,7 @@ void handle_command(char* buf) {
 
         print("Word: antidisestablishmentarianism\n");
         print("you> ");
-        get_input(buf);
+        get_input(buf, buf_size);
 
         if (strcmp(buf, "antidisestablishmentarianism") == 1) {
             print("Correct!\n");
@@ -389,7 +390,7 @@ void handle_command(char* buf) {
         print("\033[96mYou wake up in a dark place.\033[0m\n");
         print("Go 'forward' or 'stay'?\n");
         print("you> ");
-        get_input(buf);
+        get_input(buf, sizeof(buf));
 
         if (strcmp(buf, "stay") == 1) {
             print("\033[90mYou wait... nothing happens...\033[0m\n");
@@ -400,7 +401,7 @@ void handle_command(char* buf) {
             print("\033[96mYou walk forward and find a shadow.\033[0m\n");
             print("Do you 'fight' or 'run'?\n");
             print("you> ");
-            get_input(buf);
+            get_input(buf, sizeof(buf));
 
             if (strcmp(buf, "run") == 1) {
                 print("\033[94mYou escape safely.\033[0m\n");
@@ -412,7 +413,7 @@ void handle_command(char* buf) {
                 print("\033[91mThe shadow attacks!\033[0m\n");
                 print("Type 'attack' to strike\n");
                 print("you> ");
-                get_input(buf);
+                get_input(buf, sizeof(buf));
 
                 if (strcmp(buf, "attack") == 1) {
                     print("\033[93mYou hit the shadow!\033[0m\n");
@@ -421,7 +422,7 @@ void handle_command(char* buf) {
                     print("\033[91mIt strikes back!\033[0m\n");
                     print("Type 'attack' again or 'dodge'\n");
                     print("you> ");
-                    get_input(buf);
+                    get_input(buf, sizeof(buf));
 
                     if (strcmp(buf, "dodge") == 1) {
                         print("\033[92mYou dodged and survived!\033[0m\n");
@@ -488,7 +489,7 @@ void handle_command(char* buf) {
 
         while (running) {
             print("\033[96mLibrary> \033[0m");
-            get_input(buf);
+            get_input(buf, buf_size);
             // hey reminder to contributor, we are using the
             // https://www.gutenberg.org/ free library, please do not use or add
             // copyrighted material.

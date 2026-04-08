@@ -8,3 +8,4 @@ typedef int32_t i32;
 typedef uint8_t u8;
 typedef int8_t i8;
 typedef uintptr_t register_t;
+typedef unsigned char uchar;

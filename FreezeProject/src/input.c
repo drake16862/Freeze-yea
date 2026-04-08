@@ -14,7 +14,7 @@ void outb(unsigned short port, unsigned char val) {
     __asm__ volatile("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
-char scancode_to_ascii(uchar sc) {
+char scancode_to_ascii(const uchar sc) {
     static const char map[128] = {
         0,   27,  '1', '2', '3',  '4', '5', '6',  '7', '8', '9', '0',
         '-', '=', 8,   9,   'q',  'w', 'e', 'r',  't', 'y', 'u', 'i',
@@ -26,10 +26,10 @@ char scancode_to_ascii(uchar sc) {
     return 0;
 }
 
-void get_input(char* buffer) {
-    int i = 0;
+void get_input(char* buffer, const uint size) {
+    uint i = 0;
 
-    while (1) {
+    while (i < size) {
         if (serial_available()) {
             char c = serial_getc();
 
@@ -85,4 +85,5 @@ void get_input(char* buffer) {
             putc(c);
         }
     }
+    buffer[i] = 0;
 }
