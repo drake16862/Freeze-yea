@@ -1,5 +1,7 @@
 #include "input.h"
+
 #include "serial.h"
+#include "types.h"
 #include "vga.h"
 
 unsigned char inb(unsigned short port) {
@@ -12,14 +14,13 @@ void outb(unsigned short port, unsigned char val) {
     __asm__ volatile("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
-char scancode_to_ascii(unsigned char sc) {
+char scancode_to_ascii(uchar sc) {
     static const char map[128] = {
         0,   27,  '1', '2', '3',  '4', '5', '6',  '7', '8', '9', '0',
         '-', '=', 8,   9,   'q',  'w', 'e', 'r',  't', 'y', 'u', 'i',
         'o', 'p', '[', ']', '\n', 0,   'a', 's',  'd', 'f', 'g', 'h',
         'j', 'k', 'l', ';', '\'', '`', 0,   '\\', 'z', 'x', 'c', 'v',
-        'b', 'n', 'm', ',', '.',  '/', 0,   '*',  0,   ' '
-    };
+        'b', 'n', 'm', ',', '.',  '/', 0,   '*',  0,   ' '};
 
     if (sc < sizeof(map)) return map[sc];
     return 0;
@@ -56,11 +57,11 @@ void get_input(char* buffer) {
             continue;
         }
 
-        if (!(inb(0x64) & 1)) continue; 
+        if (!(inb(0x64) & 1)) continue;
 
         unsigned char sc = inb(0x60);
 
-        if (sc & 0x80) continue; 
+        if (sc & 0x80) continue;
 
         char c = scancode_to_ascii(sc);
         if (!c) continue;
