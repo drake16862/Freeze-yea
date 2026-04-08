@@ -30,18 +30,13 @@ void get_input(char* buffer, const uint size) {
     uint i = 0;
 
     while (i < size) {
+        char c;
         if (serial_available()) {
-            char c = serial_getc();
+            c = serial_getc();
 
-            if (c == '\r') c = '\n';
+            // if (c == '\r') c = '\n';
 
-            if (c == '\n') {
-                buffer[i] = 0;
-                putc('\n');
-                return;
-            }
-
-            if (c == 8 || c == 127) {
+            if (c == 127) {
                 if (i > 0) {
                     i--;
                     erase_last_char();
@@ -49,38 +44,27 @@ void get_input(char* buffer, const uint size) {
                 continue;
             }
 
-            if (i < 127) {
-                buffer[i++] = c;
-                putc(c);
-            }
+        } else {
+            if (!(inb(0x64) & 1)) continue;
+            const uchar sc = inb(0x60);
 
-            continue;
+            if (sc & 0x80) continue;
+
+            c = scancode_to_ascii(sc);
         }
 
-        if (!(inb(0x64) & 1)) continue;
-
-        unsigned char sc = inb(0x60);
-
-        if (sc & 0x80) continue;
-
-        char c = scancode_to_ascii(sc);
         if (!c) continue;
 
-        if (c == '\n') {
+        if (c == '\n' || c == '\r') {
             buffer[i] = 0;
             putc('\n');
             return;
-        }
-
-        if (c == 8) {
+        } else if (c == 8) {
             if (i > 0) {
                 i--;
                 erase_last_char();
             }
-            continue;
-        }
-
-        if (i < 127) {
+        } else if (i < 127) {
             buffer[i++] = c;
             putc(c);
         }

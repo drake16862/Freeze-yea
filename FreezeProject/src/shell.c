@@ -12,6 +12,7 @@ int startswith(const char* s, const char* p) {
     }
     return 1;
 }
+
 int strcmp(const char* a, const char* b) {
     int i = 0;
     while (a[i] && b[i]) {
