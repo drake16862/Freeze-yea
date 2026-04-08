@@ -26,7 +26,7 @@ void shell() {
     char buf[128];
     while (1) {
         print("\033[95mFreeze-OS>\033[0m ");
-        get_input(buf, sizeof(buf));
+        get_input(buf, buf_size);
         // skip empty input
         if (buf[0] == 0) {
             continue;
@@ -396,7 +396,7 @@ void handle_command(char* buf, const uint buf_size) {
         print("\033[96mYou wake up in a dark place.\033[0m\n");
         print("Go 'forward' or 'stay'?\n");
         print("you> ");
-        get_input(buf, sizeof(buf));
+        get_input(buf, buf_size);
 
         if (strcmp(buf, "stay") == 1) {
             print("\033[90mYou wait... nothing happens...\033[0m\n");
@@ -407,7 +407,7 @@ void handle_command(char* buf, const uint buf_size) {
             print("\033[96mYou walk forward and find a shadow.\033[0m\n");
             print("Do you 'fight' or 'run'?\n");
             print("you> ");
-            get_input(buf, sizeof(buf));
+            get_input(buf, buf_size);
 
             if (strcmp(buf, "run") == 1) {
                 print("\033[94mYou escape safely.\033[0m\n");
@@ -419,7 +419,7 @@ void handle_command(char* buf, const uint buf_size) {
                 print("\033[91mThe shadow attacks!\033[0m\n");
                 print("Type 'attack' to strike\n");
                 print("you> ");
-                get_input(buf, sizeof(buf));
+                get_input(buf, buf_size);
 
                 if (strcmp(buf, "attack") == 1) {
                     print("\033[93mYou hit the shadow!\033[0m\n");
@@ -428,7 +428,7 @@ void handle_command(char* buf, const uint buf_size) {
                     print("\033[91mIt strikes back!\033[0m\n");
                     print("Type 'attack' again or 'dodge'\n");
                     print("you> ");
-                    get_input(buf, sizeof(buf));
+                    get_input(buf, buf_size);
 
                     if (strcmp(buf, "dodge") == 1) {
                         print("\033[92mYou dodged and survived!\033[0m\n");
