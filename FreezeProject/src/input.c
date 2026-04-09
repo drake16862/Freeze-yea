@@ -1,5 +1,7 @@
 #include "input.h"
+
 #include "serial.h"
+#include "types.h"
 #include "vga.h"
 
 unsigned char inb(unsigned short port) {
@@ -12,35 +14,29 @@ void outb(unsigned short port, unsigned char val) {
     __asm__ volatile("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
-char scancode_to_ascii(unsigned char sc) {
+char scancode_to_ascii(const uchar sc) {
     static const char map[128] = {
         0,   27,  '1', '2', '3',  '4', '5', '6',  '7', '8', '9', '0',
         '-', '=', 8,   9,   'q',  'w', 'e', 'r',  't', 'y', 'u', 'i',
         'o', 'p', '[', ']', '\n', 0,   'a', 's',  'd', 'f', 'g', 'h',
         'j', 'k', 'l', ';', '\'', '`', 0,   '\\', 'z', 'x', 'c', 'v',
-        'b', 'n', 'm', ',', '.',  '/', 0,   '*',  0,   ' '
-    };
+        'b', 'n', 'm', ',', '.',  '/', 0,   '*',  0,   ' '};
 
     if (sc < sizeof(map)) return map[sc];
     return 0;
 }
 
-void get_input(char* buffer) {
-    int i = 0;
+void get_input(char* buffer, const uint size) {
+    uint i = 0;
 
-    while (1) {
+    while (i < size) {
+        char c;
         if (serial_available()) {
-            char c = serial_getc();
+            c = serial_getc();
 
-            if (c == '\r') c = '\n';
+            // if (c == '\r') c = '\n';
 
-            if (c == '\n') {
-                buffer[i] = 0;
-                putc('\n');
-                return;
-            }
-
-            if (c == 8 || c == 127) {
+            if (c == 127) {
                 if (i > 0) {
                     i--;
                     erase_last_char();
@@ -48,40 +44,30 @@ void get_input(char* buffer) {
                 continue;
             }
 
-            if (i < 127) {
-                buffer[i++] = c;
-                putc(c);
-            }
+        } else {
+            if (!(inb(0x64) & 1)) continue;
+            const uchar sc = inb(0x60);
 
-            continue;
+            if (sc & 0x80) continue;
+
+            c = scancode_to_ascii(sc);
         }
 
-        if (!(inb(0x64) & 1)) continue; 
-
-        unsigned char sc = inb(0x60);
-
-        if (sc & 0x80) continue; 
-
-        char c = scancode_to_ascii(sc);
         if (!c) continue;
 
-        if (c == '\n') {
+        if (c == '\n' || c == '\r') {
             buffer[i] = 0;
             putc('\n');
             return;
-        }
-
-        if (c == 8) {
+        } else if (c == 8) {
             if (i > 0) {
                 i--;
                 erase_last_char();
             }
-            continue;
-        }
-
-        if (i < 127) {
+        } else if (i < 127) {
             buffer[i++] = c;
             putc(c);
         }
     }
+    buffer[i] = 0;
 }

@@ -1,13 +1,27 @@
-AS = gcc
-CC = gcc
-LD = ld
+# ==================== TOOLCHAIN DETECTION ====================
+CROSS_GCC := $(shell command -v i686-elf-gcc 2>/dev/null)
+CROSS_LD  := $(shell command -v i686-elf-ld  2>/dev/null)
+CROSS_AS  := $(shell command -v i686-elf-as  2>/dev/null)
+
+ifeq ($(and $(CROSS_GCC),$(CROSS_LD),$(CROSS_AS)),)
+    # Native toolchain
+    CC = gcc
+    LD = ld
+    AS = gcc
+    CFLAGS = -ffreestanding -m32 -Wall -Wextra -I$(P)/include -I$(P)/src
+    LDFLAGS = -m elf_i386
+else
+    # Cross toolchain (i686-elf-*)
+    CC = $(CROSS_GCC)
+    LD = $(CROSS_LD)
+    AS = $(CROSS_GCC)
+    CFLAGS = -ffreestanding -Wall -Wextra -I$(P)/include -I$(P)/src
+    LDFLAGS = -m elf_i386
+endif
 
 P = FreezeProject
 BUILDDIR = $(P)/build
 SRCDIR = $(P)/src
-
-CFLAGS = -ffreestanding -m32 -Wall -Wextra -I$(P)/include -I$(P)/src
-LDFLAGS = -m elf_i386
 
 C_SOURCES = $(wildcard $(SRCDIR)/*.c)
 ASM_SOURCES = $(wildcard $(SRCDIR)/*.S)
@@ -50,11 +64,9 @@ freeze.img:
 		dd if=/dev/zero of=freeze.img bs=1M count=10 2>/dev/null || true; \
 	fi
 
-# QEMU
 run: freeze.iso freeze.img
-	qemu-system-i386 -cdrom freeze.iso -drive file=freeze.img,format=raw,media=disk -nographic
+	qemu-system-x86_64 -cdrom freeze.iso -drive file=freeze.img,format=raw,media=disk 
 
-# clean
 clean:
 	rm -rf $(BUILDDIR) freeze.iso iso
 
