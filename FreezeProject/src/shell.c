@@ -162,6 +162,10 @@ void handle_command(char* buf, const uint buf_size) {
         for (;;);
     } else if (strcmp(buf, "ls") == 1) {
         fs_list();
+    } else if (startswith(buf, "ls ")) {
+        if (fs_list_path(buf + 3) != 0) {
+            print("Cannot list directory\n");
+        }
     } else if (strcmp(buf, "open editor") == 1) {
         print("Opening editor....\n");
         print("\033[96m=== \033[95mfile.fp Editor\033[96m ===\033[0m\n");
@@ -176,6 +180,7 @@ void handle_command(char* buf, const uint buf_size) {
             fd = fs_create(filename);
             if (fd < 0) {
                 print("Cannot create file\n");
+                return;
             }
         }
         print("Editing ");
@@ -184,8 +189,14 @@ void handle_command(char* buf, const uint buf_size) {
         get_input(buf, buf_size);
         int len = 0;
         while (buf[len]) len++;
-        fs_write(fd, buf, len);
-        fs_sync();
+        if (fs_write(fd, buf, len) < 0) {
+            print("Cannot write file\n");
+            return;
+        }
+        if (fs_save(fd) != 0) {
+            print("Save failed\n");
+            return;
+        }
         print("Saved to disk\n");
     } else if (strcmp(buf, "stat") == 1) {
         print("File: kernel.bin Size: 2.5\n");
@@ -209,10 +220,13 @@ void handle_command(char* buf, const uint buf_size) {
         char* filename = buf + 5;
         int fd = fs_find(filename);
         if (fd >= 0) {
-            fs_save(fd);
-            print("File saved to disk: ");
-            print(filename);
-            print("\n");
+            if (fs_save(fd) == 0) {
+                print("File saved to disk: ");
+                print(filename);
+                print("\n");
+            } else {
+                print("Save failed\n");
+            }
         } else {
             print("File not found\n");
         }

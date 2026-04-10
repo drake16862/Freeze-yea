@@ -1,0 +1,138 @@
+@demorunaccount ➜ /workspaces/Freeze-Project (main) $ make clean && make
+make run
+rm -rf FreezeProject/build freeze.iso iso FreezeProject/fs-staging freeze.img
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/crt.c -o FreezeProject/build/crt.o
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/disk.c -o FreezeProject/build/disk.o
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/ext2.c -o FreezeProject/build/ext2.o
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/fs.c -o FreezeProject/build/fs.o
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/input.c -o FreezeProject/build/input.o
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/kernel.c -o FreezeProject/build/kernel.o
+FreezeProject/src/kernel.c: In function ‘e1000_rx_init’:
+FreezeProject/src/kernel.c:102:28: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+  102 |         rx_descs[i].addr = (uint64_t)&rx_buffers[i];
+      |                            ^
+FreezeProject/src/kernel.c: In function ‘pci_scan’:
+FreezeProject/src/kernel.c:192:21: warning: unused variable ‘subclass’ [-Wunused-variable]
+  192 |             uint8_t subclass  = (classData >> 16) & 0xFF;
+      |                     ^~~~~~~~
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/memory.c -o FreezeProject/build/memory.o
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/rtc.c -o FreezeProject/build/rtc.o
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/serial.c -o FreezeProject/build/serial.o
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/shell.c -o FreezeProject/build/shell.o
+FreezeProject/src/shell.c: In function ‘handle_command’:
+FreezeProject/src/shell.c:1045:18: warning: comparison is always true due to limited range of data type [-Wtype-limits]
+ 1045 |         while (i < 150) {
+      |                  ^
+FreezeProject/src/shell.c:1205:18: warning: comparison is always true due to limited range of data type [-Wtype-limits]
+ 1205 |         while (i < 150) {
+      |                  ^
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/timer.c -o FreezeProject/build/timer.o
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/vga.c -o FreezeProject/build/vga.o
+mkdir -p FreezeProject/build
+gcc -ffreestanding -m32 -Wall -Wextra -IFreezeProject/include -IFreezeProject/src -c FreezeProject/src/start.S -o FreezeProject/build/start.o
+ld -m elf_i386 -T FreezeProject/src/linker.ld -o FreezeProject/build/kernel.bin FreezeProject/build/crt.o FreezeProject/build/disk.o FreezeProject/build/ext2.o FreezeProject/build/fs.o FreezeProject/build/input.o FreezeProject/build/kernel.o FreezeProject/build/memory.o FreezeProject/build/rtc.o FreezeProject/build/serial.o FreezeProject/build/shell.o FreezeProject/build/timer.o FreezeProject/build/vga.o FreezeProject/build/start.o
+ld: warning: FreezeProject/build/start.o: missing .note.GNU-stack section implies executable stack
+ld: NOTE: This behaviour is deprecated and will be removed in a future version of the linker
+ld: warning: FreezeProject/build/kernel.bin has a LOAD segment with RWX permissions
+mkdir -p iso/boot/grub
+cp FreezeProject/grub/grub.cfg iso/boot/grub/grub.cfg
+rm -rf iso/boot/kernel.bin
+mkdir -p iso/boot/grub
+cp FreezeProject/build/kernel.bin iso/boot/
+grub-mkrescue -o freeze.iso iso
+xorriso 1.5.6 : RockRidge filesystem manipulator, libburnia project.
+
+Drive current: -outdev 'stdio:freeze.iso'
+Media current: stdio file, overwriteable
+Media status : is blank
+Media summary: 0 sessions, 0 data blocks, 0 data, 19.6g free
+Added to ISO image: directory '/'='/tmp/grub.l2R67i'
+xorriso : UPDATE :     295 files added in 1 seconds
+Added to ISO image: directory '/'='/workspaces/Freeze-Project/iso'
+xorriso : UPDATE :     299 files added in 1 seconds
+xorriso : NOTE : Copying to System Area: 512 bytes from file '/usr/lib/grub/i386-pc/boot_hybrid.img'
+ISO image produced: 2531 sectors
+Written to medium : 2531 sectors at LBA 0
+Writing to 'stdio:freeze.iso' completed successfully.
+
+mkdir -p FreezeProject/fs-staging/bin
+mkdir -p FreezeProject/fs-staging/boot
+mkdir -p FreezeProject/fs-staging/etc
+mkdir -p FreezeProject/fs-staging/home
+mkdir -p FreezeProject/fs-staging/lib
+mkdir -p FreezeProject/fs-staging/media
+mkdir -p FreezeProject/fs-staging/mnt
+mkdir -p FreezeProject/fs-staging/opt
+mkdir -p FreezeProject/fs-staging/root
+mkdir -p FreezeProject/fs-staging/tmp
+mkdir -p FreezeProject/fs-staging/usr/bin
+mkdir -p FreezeProject/fs-staging/usr/lib
+mkdir -p FreezeProject/fs-staging/usr/books
+mkdir -p FreezeProject/fs-staging/var/log
+touch FreezeProject/fs-staging/.dirs
+cp FreezeProject/books/* FreezeProject/fs-staging/usr/books/ 2>/dev/null || true
+touch FreezeProject/fs-staging/.files
+Creating ext2 filesystem with genext2fs...
+copying from directory FreezeProject/fs-staging
+No GUI display detected; running QEMU in headless mode.
+[crt] C runtime initialized
+
+[PCI] Scanning...
+[PCI] 0x00008086:0x00001237 @ 0x00000000:0x00000000
+[PCI] 0x00008086:0x00007000 @ 0x00000000:0x00000001
+[PCI] 0x00001234:0x00001111 @ 0x00000000:0x00000002
+[PCI] 0x00008086:0x0000100E @ 0x00000000:0x00000003
+[NET] network device detected at 0x00000000:0x00000003
+[NET] Found e1000!
+
+[NET] e1000 ready
+
+[NET] Initializing e1000...
+[NET] Reset done
+[NET] Setting up RX...
+[NET] RX initialized
+[NET] Cable connected
+[NET] Active driver: e1000
+___________                                    
+\_   _____/______   ____   ____ ________ ____  
+ |    __) \_  __ \_/ __ \_/ __ \\___   // __ \ 
+ |     \   |  | \/\  ___/\  ___/ /    /\  ___/ 
+ \___  /   |__|    \___  >\___  >_____ \\___  >
+     \/                \/     \/      \/    \/ 
+https://freezeos.org/
+Type 'help' for help on learning commands
+
+--------------------------------
+Currently: Version 0.64
+Freeze-OS> ls
+[EXT2] Root directory:
+.
+..
+lost+found
+media
+lib
+home
+mnt
+bin
+.dirs
+tmp
+etc
+root
+var
+.files
+opt
+boot
+usr
+Freeze-OS> 

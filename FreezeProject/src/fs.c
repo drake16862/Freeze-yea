@@ -2,11 +2,14 @@
 #include "disk.h"
 #include "memory.h"
 #include "vga.h"
+#include "ext2.h"
 
 char* strcpy(char* dest, const char* src);
 void* memcpy(void* dest, const void* src, size_t n);
 void* memset(void* s, int c, size_t n);
 size_t strlen(const char* s);
+
+static int fs_type = 0;  /* 0 = custom, 1 = ext2 */
 
 char* strcpy(char* dest, const char* src) {
     char* d = dest;
@@ -43,11 +46,30 @@ size_t strlen(const char* s) {
 struct file files[MAX_FILES];
 static uint16_t next_free_sector = FS_DATA_START;
 
+static int fs_alloc_slot(const char* name) {
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (!files[i].used) {
+            strcpy(files[i].name, name);
+            files[i].used = 1;
+            files[i].size = 0;
+            files[i].disk_size = 0;
+            files[i].inode_num = 0;
+            files[i].start_sector = 0;
+            files[i].sector_count = 0;
+            files[i].dirty = 0;
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 void fs_init() {
     for (int i = 0; i < MAX_FILES; i++) {
         files[i].used = 0;
         files[i].size = 0;
         files[i].disk_size = 0;
+        files[i].inode_num = 0;
         files[i].start_sector = 0;
         files[i].sector_count = 0;
         files[i].dirty = 0;
@@ -81,6 +103,15 @@ static int fs_calculate_sectors_needed(uint32_t size) {
 }
 
 void fs_mount() {
+    /* Try mounting as ext2 first */
+    if (ext2_mount() == 0) {
+        fs_type = 1;
+        print("[FS] ext2 filesystem detected and mounted\n");
+        return;
+    }
+    
+    /* Fall back to custom filesystem */
+    fs_type = 0;
     uint8_t header_buf[512];
     
     disk_read_sector(FS_HEADER_SECTOR, header_buf);
@@ -130,12 +161,28 @@ void fs_mount() {
 }
 
 int fs_create(const char* name) {
+    if (fs_type == 1) {
+        int existing = fs_find(name);
+        int fd;
+
+        if (existing >= 0) {
+            return existing;
+        }
+
+        fd = fs_alloc_slot(name);
+        if (fd >= 0) {
+            files[fd].dirty = 1;
+        }
+        return fd;
+    }
+
     for (int i = 0; i < MAX_FILES; i++) {
         if (!files[i].used) {
             strcpy(files[i].name, name);
             files[i].used = 1;
             files[i].size = 0;
             files[i].disk_size = 0;
+            files[i].inode_num = 0;
             files[i].start_sector = 0;
             files[i].sector_count = 0;
             files[i].dirty = 1;
@@ -159,6 +206,17 @@ int fs_write(int fd, const char* data, uint32_t size) {
 
 int fs_read(int fd, char* buffer, uint32_t size) {
     if (fd < 0 || fd >= MAX_FILES || !files[fd].used) return -1;
+
+    if (fs_type == 1) {
+        if (files[fd].dirty || files[fd].inode_num == 0) {
+            if (size > files[fd].size) size = files[fd].size;
+            memcpy(buffer, files[fd].content, size);
+            return size;
+        }
+
+        if (size > files[fd].size) size = files[fd].size;
+        return ext2_read_file(files[fd].inode_num, 0, buffer, size);
+    }
     
     if (size > files[fd].size) size = files[fd].size;
     
@@ -168,6 +226,41 @@ int fs_read(int fd, char* buffer, uint32_t size) {
 }
 
 int fs_find(const char* name) {
+    if (fs_type == 1) {
+        for (int i = 0; i < MAX_FILES; i++) {
+            if (files[i].used) {
+                const char* a = files[i].name;
+                const char* b = name;
+                while (*a && *b) {
+                    if (*a != *b) break;
+                    a++; b++;
+                }
+                if (*a == *b) return i;
+            }
+        }
+
+        {
+            int inode_num = ext2_find_path(name);
+            if (inode_num >= 0) {
+                struct ext2_inode inode;
+                int fd = fs_alloc_slot(name);
+                if (fd < 0) {
+                    return -1;
+                }
+                if (ext2_read_inode((uint32_t)inode_num, &inode) != 0) {
+                    files[fd].used = 0;
+                    return -1;
+                }
+                files[fd].inode_num = (uint32_t)inode_num;
+                files[fd].size = inode.size;
+                files[fd].disk_size = inode.size;
+                return fd;
+            }
+        }
+
+        return -1;
+    }
+
     for (int i = 0; i < MAX_FILES; i++) {
         if (files[i].used) {
             const char* a = files[i].name;
@@ -184,6 +277,19 @@ int fs_find(const char* name) {
 
 int fs_save(int fd) {
     if (fd < 0 || fd >= MAX_FILES || !files[fd].used) return -1;
+
+    if (fs_type == 1) {
+        uint32_t inode_num = files[fd].inode_num;
+
+        if (ext2_write_file(files[fd].name, files[fd].content, files[fd].size, &inode_num) != 0) {
+            return -1;
+        }
+
+        files[fd].inode_num = inode_num;
+        files[fd].dirty = 0;
+        files[fd].disk_size = files[fd].size;
+        return 0;
+    }
     
     uint32_t sectors_needed = fs_calculate_sectors_needed(files[fd].size);
     
@@ -247,6 +353,15 @@ int fs_load(int fd) {
 }
 
 void fs_sync() {
+    if (fs_type == 1) {
+        for (int i = 0; i < MAX_FILES; i++) {
+            if (files[i].used && files[i].dirty) {
+                fs_save(i);
+            }
+        }
+        return;
+    }
+
     for (int i = 0; i < MAX_FILES; i++) {
         if (files[i].used && files[i].dirty) {
             fs_save(i);
@@ -257,6 +372,8 @@ void fs_sync() {
 }
 
 int fs_delete(const char* name) {
+    if (fs_type == 1) return -1;
+
     int fd = fs_find(name);
     if (fd < 0) return -1;
     
@@ -271,7 +388,22 @@ int fs_delete(const char* name) {
     return 0;
 }
 
-void fs_list() {
+int fs_list_path(const char* path) {
+    if (fs_type == 1) {
+        if (!path || path[0] == 0 || (path[0] == '/' && path[1] == 0)) {
+            print("[EXT2] Root directory:\n");
+        } else {
+            print("[EXT2] Directory: ");
+            print(path);
+            print("\n");
+        }
+        return ext2_list_path(path && path[0] ? path : "/");
+    }
+
+    if (path && path[0]) {
+        return -1;
+    }
+
     for (int i = 0; i < MAX_FILES; i++) {
         if (files[i].used) {
             print(files[i].name);
@@ -280,4 +412,10 @@ void fs_list() {
             print(" bytes)\n");
         }
     }
+
+    return 0;
+}
+
+void fs_list() {
+    fs_list_path("");
 }

@@ -2,6 +2,7 @@
 #define FS_H
 
 #include <stdint.h>
+#include "ext2.h"
 
 #define MAX_FILES 32
 #define MAX_FILENAME 32
@@ -23,6 +24,7 @@ struct file {
     char content[MAX_FILE_SIZE];
     uint32_t size;
     uint32_t disk_size;
+    uint32_t inode_num;
     uint16_t start_sector;
     uint16_t sector_count;
     int used;
@@ -39,6 +41,7 @@ int fs_write(int fd, const char* data, uint32_t size);
 int fs_read(int fd, char* buffer, uint32_t size);
 int fs_find(const char* name);
 void fs_list();
+int fs_list_path(const char* path);
 int fs_delete(const char* name);
 int fs_save(int fd);
 int fs_load(int fd);

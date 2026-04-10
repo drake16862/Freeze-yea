@@ -26,7 +26,11 @@ Run
 ```bash
 make run
 ```
-
+To do all that together
+```bash
+make clean && make
+make run
+```
 
 if you want you may check for the iso file:
 ```bash

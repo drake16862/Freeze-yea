@@ -38,6 +38,10 @@ static inline uint16_t inw(uint16_t port) {
     return ret;
 }
 
+static inline void io_wait() {
+    __asm__ volatile ("outb %%al, $0x80" : : "a"(0));
+}
+
 static int disk_wait_ready() {
     int timeout = 100000;
     while (timeout--) {
@@ -72,18 +76,15 @@ void disk_init() {
 
 int disk_read_sector(uint32_t sector, uint8_t* buffer) {
     if (!buffer) return -1;
-    
+
     if (disk_wait_ready() != 0) return -1;
 
-    uint32_t c = sector / 63 / 16;
-    uint32_t h = (sector / 63) % 16;
-    uint32_t s = (sector % 63) + 1;
-
-    outb(IDE_DRIVE_HEAD, 0xE0 | (h & 0x0F));
+    outb(IDE_DRIVE_HEAD, 0xE0 | ((sector >> 24) & 0x0F));
+    io_wait();
     outb(IDE_SECTOR_COUNT, 1);
-    outb(IDE_SECTOR_NUM, s);
-    outb(IDE_CYLINDER_LOW, c & 0xFF);
-    outb(IDE_CYLINDER_HIGH, (c >> 8) & 0xFF);
+    outb(IDE_SECTOR_NUM, sector & 0xFF);
+    outb(IDE_CYLINDER_LOW, (sector >> 8) & 0xFF);
+    outb(IDE_CYLINDER_HIGH, (sector >> 16) & 0xFF);
     outb(IDE_COMMAND_PORT, IDE_CMD_READ_SECTORS);
 
     if (disk_wait_drq() != 0) return -1;
@@ -102,15 +103,12 @@ int disk_write_sector(uint32_t sector, const uint8_t* buffer) {
 
     if (disk_wait_ready() != 0) return -1;
 
-    uint32_t c = sector / 63 / 16;
-    uint32_t h = (sector / 63) % 16;
-    uint32_t s = (sector % 63) + 1;
-
-    outb(IDE_DRIVE_HEAD, 0xE0 | (h & 0x0F));
+    outb(IDE_DRIVE_HEAD, 0xE0 | ((sector >> 24) & 0x0F));
+    io_wait();
     outb(IDE_SECTOR_COUNT, 1);
-    outb(IDE_SECTOR_NUM, s);
-    outb(IDE_CYLINDER_LOW, c & 0xFF);
-    outb(IDE_CYLINDER_HIGH, (c >> 8) & 0xFF);
+    outb(IDE_SECTOR_NUM, sector & 0xFF);
+    outb(IDE_CYLINDER_LOW, (sector >> 8) & 0xFF);
+    outb(IDE_CYLINDER_HIGH, (sector >> 16) & 0xFF);
     outb(IDE_COMMAND_PORT, IDE_CMD_WRITE_SECTORS);
 
     if (disk_wait_drq() != 0) return -1;
