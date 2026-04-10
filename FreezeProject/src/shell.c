@@ -23,6 +23,355 @@ int strcmp(const char* a, const char* b) {
     return a[i] == b[i];
 }
 
+static uint str_len(const char* s) {
+    uint n = 0;
+    while (s[n]) n++;
+    return n;
+}
+
+static void bario_render(const char* level, const uint level_len, const int x,
+                         const int airborne, const int lives, const int coins,
+                         const int checkpoint) {
+    int start = x - 14;
+    int end = x + 14;
+    if (start < 0) start = 0;
+    if (end >= (int)level_len) end = (int)level_len - 1;
+
+    print("\n\033[96m=== BARIO ===\033[0m\n");
+    print("Controls: a=left d=right w=jump q=quit\n");
+    print("Lives: ");
+    print_int(lives);
+    print("  Coins: ");
+    print_int(coins);
+    print("  Checkpoint: ");
+    print_int(checkpoint);
+    print("\n\n");
+
+    for (int i = start; i <= end; i++) {
+        char c = ' ';
+        if (i == x && airborne) {
+            c = 'B';
+        } else if (level[i] == 'x') {
+            c = 'x';
+        }
+        putc(c);
+    }
+    print("\n");
+
+    for (int i = start; i <= end; i++) {
+        char c;
+        if (i == x && !airborne) {
+            c = 'B';
+        } else {
+            c = level[i];
+            if (c == '_') c = ' ';
+        }
+        putc(c);
+    }
+    print("\n\n");
+}
+
+static void bario_game() {
+    char level[96] = "....o....#..o...x....__....o...#....x...o....#..o...x...__....o....F";
+    const uint level_len = str_len(level);
+    int x = 0;
+    int lives = 3;
+    int coins = 0;
+    int checkpoint = 0;
+    int jump_ticks = 0;
+    char cmd[8];
+
+    print("\033[93mBooting Bario...\033[0m\n");
+
+    while (1) {
+        int airborne = jump_ticks > 0;
+        bario_render(level, level_len, x, airborne, lives, coins, checkpoint);
+        print("move> ");
+        get_input(cmd, sizeof(cmd));
+
+        if (cmd[0] == 'q') {
+            print("Leaving Bario.\n");
+            return;
+        }
+
+        if (cmd[0] == 'w' && jump_ticks == 0) {
+            jump_ticks = 2;
+            airborne = 1;
+        }
+
+        if (cmd[0] == 'a') {
+            x--;
+        } else if (cmd[0] == 'd') {
+            x++;
+        }
+
+        if (x < 0) x = 0;
+        if (x >= (int)level_len) x = (int)level_len - 1;
+
+        if (x > checkpoint + 8) checkpoint = x;
+
+        if (level[x] == 'o') {
+            coins++;
+            level[x] = '.';
+            print("Coin!\n");
+        }
+
+        if (level[x] == 'F') {
+            print("\033[92mYou cleared Bario!\033[0m\n");
+            print("Coins collected: ");
+            print_int(coins);
+            print("\n");
+            return;
+        }
+
+        if (!airborne && (level[x] == '#' || level[x] == 'x' || level[x] == '_')) {
+            lives--;
+            print("\033[91mOuch!\033[0m You got hit.\n");
+
+            if (lives <= 0) {
+                print("\033[91mGame Over\033[0m\n");
+                print("Coins collected: ");
+                print_int(coins);
+                print("\n");
+                return;
+            }
+
+            x = checkpoint;
+            jump_ticks = 0;
+            print("Respawning at checkpoint...\n");
+        } else if (airborne && level[x] == 'x') {
+            level[x] = '.';
+            print("Stomp!\n");
+        }
+
+        if (jump_ticks > 0) jump_ticks--;
+    }
+}
+
+static int iabs(const int v) {
+    return v < 0 ? -v : v;
+}
+
+static int race_test_curve_at(const int seg) {
+    if (seg < 25) return 0;
+    if (seg < 50) return 1;
+    if (seg < 75) return -1;
+    if (seg < 100) return 1;
+    if (seg < 130) return 0;
+    if (seg < 160) return -1;
+    if (seg < 190) return 1;
+    if (seg < 220) return 0;
+    return -1;
+}
+
+static int race_test_obstacle_lane(const int seg, const int finish_seg) {
+    if (seg < 20 || seg >= finish_seg - 6) return -2;
+    if ((seg % 21) == 6 || (seg % 29) == 11 || (seg % 37) == 20) {
+        return (seg % 3) - 1;
+    }
+    return -2;
+}
+
+static int race_test_coin_lane(const int seg, const int finish_seg) {
+    if (seg < 8 || seg >= finish_seg - 4) return -2;
+    if ((seg % 13) == 3 || (seg % 17) == 9) {
+        return ((seg / 3) % 3) - 1;
+    }
+    return -2;
+}
+
+static void race_test_render(const int seg_pos, const int finish_seg, const int lane,
+                          const int speed, const int lives, const int score,
+                          const int coins) {
+    const int width = 61;
+    const int rows = 18;
+    char line[64];
+
+    print("\033[2J\033[H");
+    print("\033[96m=== BARIO KART ASCII 3D ===\033[0m\n");
+    print("Controls: a left, d right, w boost, s brake, q quit\n");
+    print("Speed: ");
+    print_int(speed * 35);
+    print(" KPH   Lives: ");
+    print_int(lives);
+    print("   Coins: ");
+    print_int(coins);
+    print("   Score: ");
+    print_int(score);
+    print("\n");
+    print("Pos: ");
+    print_int((seg_pos * 100) / finish_seg);
+    print("%\n\n");
+
+    print("              _/\\_              _/\\_\n");
+    print("         _/\\_/    \\_/\\_    _/\\_/    \\_/\\_\n");
+
+    for (int r = 0; r < rows; r++) {
+        const int depth = r + 1;
+        int seg = seg_pos + depth;
+        int road_half = 3 + r;
+        int curve_acc = 0;
+
+        if (seg > finish_seg) seg = finish_seg;
+
+        for (int i = 0; i < depth; i++) {
+            int s = seg_pos + i;
+            if (s > finish_seg) s = finish_seg;
+            curve_acc += race_test_curve_at(s);
+        }
+
+        int center = (width / 2) + (curve_acc / 2);
+        int left = center - road_half;
+        int right = center + road_half;
+
+        if (left < 1) left = 1;
+        if (right > width - 2) right = width - 2;
+
+        for (int x = 0; x < width; x++) line[x] = ' ';
+        line[width] = 0;
+
+        for (int x = left; x <= right; x++) {
+            line[x] = '=';
+        }
+        if (((seg + r) % 2) == 0) {
+            line[center] = '|';
+        }
+
+        if (left - 1 >= 0) line[left - 1] = '.';
+        if (right + 1 < width) line[right + 1] = '.';
+
+        {
+            int obs_lane = race_test_obstacle_lane(seg, finish_seg);
+            if (obs_lane != -2) {
+                int obs_x = center + obs_lane * (road_half / 2);
+                if (obs_x >= left && obs_x <= right) {
+                    line[obs_x] = 'M';
+                }
+            }
+        }
+
+        {
+            int coin_lane = race_test_coin_lane(seg, finish_seg);
+            if (coin_lane != -2) {
+                int coin_x = center + coin_lane * (road_half / 2);
+                if (coin_x >= left && coin_x <= right && line[coin_x] == '=') {
+                    line[coin_x] = 'o';
+                }
+            }
+        }
+
+        if (r == rows - 1) {
+            int car_x = center + lane * (road_half / 2);
+            if (car_x < left + 1) car_x = left + 1;
+            if (car_x > right - 1) car_x = right - 1;
+            line[car_x] = 'A';
+            if (car_x - 1 >= 0) line[car_x - 1] = '/';
+            if (car_x + 1 < width) line[car_x + 1] = '\\';
+        }
+
+        print(line);
+        print("\n");
+    }
+
+    print("\n");
+}
+
+static void race_test_game() {
+    const int finish_seg = 240;
+    int seg_pos = 0;
+    int speed = 2;
+    int lane = 0;
+    int lives = 3;
+    int score = 0;
+    int coins = 0;
+    int collected[256];
+    char cmd[8];
+
+    for (int i = 0; i < 256; i++) collected[i] = 0;
+
+    while (1) {
+        int near_curve = race_test_curve_at(seg_pos + 1);
+        int crash = 0;
+
+        race_test_render(seg_pos, finish_seg, lane, speed, lives, score, coins);
+        print("drive> ");
+        get_input(cmd, sizeof(cmd));
+
+        if (cmd[0] == 'q') {
+            print("Exiting race.\n");
+            return;
+        }
+        if (cmd[0] == 'a') lane--;
+        if (cmd[0] == 'd') lane++;
+        if (cmd[0] == 'w' && speed < 9) speed += 2;
+        if (cmd[0] == 's' && speed > 0) speed -= 2;
+
+        if (lane < -1) lane = -1;
+        if (lane > 1) lane = 1;
+
+        if (near_curve != 0 && speed > 1) {
+            if (near_curve > 0) lane--;
+            if (near_curve < 0) lane++;
+            if (lane < -1) lane = -1;
+            if (lane > 1) lane = 1;
+        }
+
+        if (speed < 0) speed = 0;
+        if (speed > 9) speed = 9;
+
+        if (speed > 0) seg_pos += speed;
+        if (seg_pos > finish_seg) seg_pos = finish_seg;
+
+        for (int d = 0; d < 3; d++) {
+            int s = seg_pos + d;
+            int obs_lane = race_test_obstacle_lane(s, finish_seg);
+            if (obs_lane == lane && speed >= 3) {
+                crash = 1;
+            }
+        }
+
+        for (int d = 0; d < 2; d++) {
+            int s = seg_pos + d;
+            int coin_lane = race_test_coin_lane(s, finish_seg);
+            int idx = s & 255;
+            if (coin_lane == lane && !collected[idx]) {
+                collected[idx] = 1;
+                coins++;
+                score += 25;
+                print("Coin pickup!\n");
+            }
+        }
+
+        score += speed * 2;
+
+        if (crash) {
+            lives--;
+            speed = 0;
+            if (seg_pos > 8) seg_pos -= 8;
+            print("\033[91mCrash!\033[0m\n");
+            if (lives <= 0) {
+                print("\033[91mYou wiped out. Game over.\033[0m\n");
+                print("Final score: ");
+                print_int(score);
+                print("\n");
+                return;
+            }
+        }
+
+        if (seg_pos >= finish_seg) {
+            print("\033[92mFinish! You won Bario Kart ASCII 3D!\033[0m\n");
+            print("Final score: ");
+            print_int(score);
+            print("  Coins: ");
+            print_int(coins);
+            print("\n");
+            return;
+        }
+
+        if (speed > 0) speed--;
+    }
+}
+
 void shell() {
     char buf[128];
     while (1) {
@@ -64,6 +413,8 @@ void handle_command(char* buf, const uint buf_size) {
         print("edit <name>, cat <name>, rm <name>, save <name>, fsync\n");
         print("import http://host/path [name]\n");
         print("import tftp://host/path [name]\n");
+        print("bario\n");
+        print("race test\n");
     } else if (strcmp(buf, "clear") == 1) {
         clear();
     } else if (strcmp(buf, "-r") == 1) {
@@ -85,6 +436,10 @@ void handle_command(char* buf, const uint buf_size) {
         print(
             "This rule does not apply for library, just type (library) and the "
             ".fp will auto run.\n");
+    } else if (strcmp(buf, "bario") == 1) {
+        bario_game();
+    } else if (strcmp(buf, "race test") == 1) {
+        race_test_game();
     } else if (strcmp(buf, "fork while forking") == 1) {
         print("Forking while forking...\n");
         print("Forking while forking...\n");
