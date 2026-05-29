@@ -188,8 +188,7 @@ static void race_test_render(const int seg_pos, const int finish_seg, const int 
     char line[64];
 
     print("\033[2J\033[H");
-    print("\033[96m=== BARIO KART ASCII 3D ===\033[0m\n");
-    print("Controls: a left, d right, w boost, s brake, q quit\n");
+    print("\033[96m=== BARIO ===\033[0m\n");
     print("Speed: ");
     print_int(speed * 35);
     print(" KPH   Lives: ");
@@ -350,7 +349,7 @@ static void race_test_game() {
             if (seg_pos > 8) seg_pos -= 8;
             print("\033[91mCrash!\033[0m\n");
             if (lives <= 0) {
-                print("\033[91mYou wiped out. Game over.\033[0m\n");
+                print("\033[91mYou.\033[0m\n");
                 print("Final score: ");
                 print_int(score);
                 print("\n");
@@ -359,7 +358,7 @@ static void race_test_game() {
         }
 
         if (seg_pos >= finish_seg) {
-            print("\033[92mFinish! You won Bario Kart ASCII 3D!\033[0m\n");
+            print("\033[92mFinish!\033[0m\n");
             print("Final score: ");
             print_int(score);
             print("  Coins: ");
@@ -377,7 +376,7 @@ void shell() {
     while (1) {
         print("\033[95mFreeze-OS>\033[0m ");
         get_input(buf, sizeof(buf));
-        // skip empty input
+        
         if (buf[0] == 0) {
             continue;
         }
@@ -413,8 +412,6 @@ void handle_command(char* buf, const uint buf_size) {
         print("edit <name>, cat <name>, rm <name>, save <name>, fsync\n");
         print("import http://host/path [name]\n");
         print("import tftp://host/path [name]\n");
-        print("bario\n");
-        print("race test\n");
     } else if (strcmp(buf, "clear") == 1) {
         clear();
     } else if (strcmp(buf, "-r") == 1) {
@@ -438,7 +435,7 @@ void handle_command(char* buf, const uint buf_size) {
             ".fp will auto run.\n");
     } else if (strcmp(buf, "bario") == 1) {
         bario_game();
-    } else if (strcmp(buf, "race test") == 1) {
+    } else if (strcmp(buf, "race test [removing soon]") == 1) {
         race_test_game();
     } else if (strcmp(buf, "fork while forking") == 1) {
         print("Forking while forking...\n");
