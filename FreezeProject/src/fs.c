@@ -20,6 +20,14 @@ char* strcpy(char* dest, const char* src) {
     return dest;
 }
 
+static void safe_strncpy(char* dest, const char* src, size_t n) {
+    size_t i;
+    for (i = 0; i + 1 < n && src[i]; i++) {
+        dest[i] = src[i];
+    }
+    dest[i] = 0;
+}
+
 void* memcpy(void* dest, const void* src, size_t n) {
     char* d = dest;
     const char* s = src;
@@ -49,7 +57,7 @@ static uint16_t next_free_sector = FS_DATA_START;
 static int fs_alloc_slot(const char* name) {
     for (int i = 0; i < MAX_FILES; i++) {
         if (!files[i].used) {
-            strcpy(files[i].name, name);
+            safe_strncpy(files[i].name, name, MAX_FILENAME);
             files[i].used = 1;
             files[i].size = 0;
             files[i].disk_size = 0;
@@ -133,7 +141,7 @@ void fs_mount() {
         if (meta->name[0] == 0) continue;
         
         files[i].used = 1;
-        strcpy(files[i].name, meta->name);
+        safe_strncpy(files[i].name, meta->name, MAX_FILENAME);
         files[i].size = meta->size;
         files[i].disk_size = meta->size;
         files[i].start_sector = meta->start_sector;
@@ -178,7 +186,7 @@ int fs_create(const char* name) {
 
     for (int i = 0; i < MAX_FILES; i++) {
         if (!files[i].used) {
-            strcpy(files[i].name, name);
+            safe_strncpy(files[i].name, name, MAX_FILENAME);
             files[i].used = 1;
             files[i].size = 0;
             files[i].disk_size = 0;
@@ -319,7 +327,7 @@ int fs_save(int fd) {
     uint8_t metadata_buf[512];
     memset(metadata_buf, 0, 512);
     struct fs_metadata* meta = (struct fs_metadata*)metadata_buf;
-    strcpy(meta->name, files[fd].name);
+    safe_strncpy(meta->name, files[fd].name, MAX_FILENAME);
     meta->size = files[fd].size;
     meta->start_sector = files[fd].start_sector;
     meta->sector_count = files[fd].sector_count;
